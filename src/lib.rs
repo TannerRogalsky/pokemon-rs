@@ -164,11 +164,3 @@ pub struct Pokemon {
     pub local_number: HashMap<Generation, u32>,
     pub base_stats: BaseStats,
 }
-
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn it_works() {
-        assert_eq!(2 + 2, 4);
-    }
-}

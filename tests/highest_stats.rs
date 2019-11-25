@@ -2,12 +2,7 @@ use pokemon::Pokemon;
 
 #[test]
 fn highest_stats() {
-    let mut pks = std::fs::read_dir("data")
-        .unwrap()
-        .filter(|f| f.as_ref().unwrap().file_type().unwrap().is_file())
-        .map(|f| std::fs::File::open(f.unwrap().path()).unwrap())
-        .map(|f| serde_json::from_reader(f).unwrap())
-        .collect::<Vec<Pokemon>>();
+    let mut pks: Vec<Pokemon> = serde_json::from_reader(std::fs::File::open("data/pokemondb.json").unwrap()).unwrap();
 
     pks.sort_by(|a, b| b.base_stats.hp.partial_cmp(&a.base_stats.hp).unwrap());
     println!(

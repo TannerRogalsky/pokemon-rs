@@ -1,8 +1,6 @@
 #![feature(async_closure)]
 
-use rayon::prelude::*;
 use scraper::Node;
-use std::collections::{HashMap, HashSet};
 use std::io::Write;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -15,17 +13,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let document = scraper::Html::parse_document(resp.as_str());
     let pk_name_selector = scraper::Selector::parse("a.ent-name").unwrap();
 
+    let mut pks = Vec::new();
+
     for e in document.select(&pk_name_selector) {
         let name = e.inner_html();
         let url = root.to_owned() + e.value().attr("href").unwrap();
 
         let vitals_select = scraper::Selector::parse("table.vitals-table").unwrap();
-        let data_select = scraper::Selector::parse("table.data-table").unwrap();
+//        let data_select = scraper::Selector::parse("table.data-table").unwrap();
         let row_select = scraper::Selector::parse("tr").unwrap();
         let strong_select = scraper::Selector::parse("strong").unwrap();
         let type_select = scraper::Selector::parse("a.type-icon").unwrap();
         let small_select = scraper::Selector::parse("small").unwrap();
-        let th_select = scraper::Selector::parse("th").unwrap();
+//        let th_select = scraper::Selector::parse("th").unwrap();
         let tr_cell_num_select = scraper::Selector::parse("td.cell-num").unwrap();
 
         let resp = reqwest::blocking::get(url.as_str())
@@ -142,12 +142,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         }
 
-        let path = std::path::PathBuf::new()
-            .join("data")
-            .join(format!("{:0>4}.json", pk.national_number));
-        let mut file = std::fs::File::create(path).unwrap();
-        file.write_all(serde_json::to_string_pretty(&pk).unwrap().as_bytes())
-            .expect("failed to write file");
+        pks.push(pk);
     }
+
+    let path = std::path::PathBuf::new()
+        .join("data")
+        .join("pokemondb.json");
+    let mut file = std::fs::File::create(path).unwrap();
+    file.write_all(serde_json::to_string_pretty(&pks).unwrap().as_bytes())
+        .expect("failed to write file");
     Ok(())
 }
