@@ -4,7 +4,6 @@ use std::str::FromStr;
 
 #[derive(Serialize, Deserialize, Copy, Clone, PartialEq, Eq, Hash, Debug)]
 pub enum Generation {
-    Unknown,
     I,
     II,
     III,
@@ -25,15 +24,35 @@ impl FromStr for Generation {
             };
         }
 
-        if case_insensitive_contains!(s, "ruby") {
+        if case_insensitive_contains!(s, "red/blue/yellow") {
+            Ok(Self::I)
+        } else if case_insensitive_contains!(s, "gold/silver/crystal") {
+            Ok(Self::II)
+        } else if case_insensitive_contains!(s, "firered/leafgreen") {
             Ok(Self::III)
-        } else if case_insensitive_contains!(s, "sapphire") {
+        } else if case_insensitive_contains!(s, "ruby/sapphire/emerald") {
             Ok(Self::III)
-        } else if case_insensitive_contains!(s, "emerald") {
-            Ok(Self::III)
-        } else if case_insensitive_contains!(s, "sword") {
-            Ok(Self::VIII)
-        } else if case_insensitive_contains!(s, "shield") {
+        } else if case_insensitive_contains!(s, "diamond/pearl") {
+            Ok(Self::IV)
+        } else if case_insensitive_contains!(s, "platinum") {
+            Ok(Self::IV)
+        } else if case_insensitive_contains!(s, "heartgold/soulsilver") {
+            Ok(Self::IV)
+        } else if case_insensitive_contains!(s, "black/white") {
+            Ok(Self::V)
+        } else if case_insensitive_contains!(s, "black 2/white 2") {
+            Ok(Self::V)
+        } else if case_insensitive_contains!(s, "omega ruby/alpha sapphire") {
+            Ok(Self::IV)
+        } else if case_insensitive_contains!(s, "x/y") {
+            Ok(Self::VI)
+        } else if case_insensitive_contains!(s, "sun/moon") {
+            Ok(Self::VII)
+        } else if case_insensitive_contains!(s, "u.sun/u.moon") {
+            Ok(Self::VII)
+        } else if case_insensitive_contains!(s, "let's go") {
+            Ok(Self::VII)
+        } else if case_insensitive_contains!(s, "sword/shield") {
             Ok(Self::VIII)
         } else {
             Err(s.to_owned())
@@ -91,45 +110,30 @@ impl FromStr for PType {
     }
 }
 
-macro_rules! stat_string {
-    ($stat:ident, $name:tt) => {
-        impl FromStr for $stat {
-            type Err = ();
-
-            fn from_str(s: &str) -> Result<Self, Self::Err> {
-                if s == $name {
-                    Ok(Self::default())
-                } else {
-                    Err(())
-                }
-            }
-        }
-    };
-}
-
-#[derive(Serialize, Deserialize, Default, Copy, Clone, PartialEq, Eq, Hash, Debug)]
+#[derive(
+    Serialize, Deserialize, Default, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug,
+)]
 pub struct HpStat(pub u32);
-stat_string!(HpStat, "HP");
-
-#[derive(Serialize, Deserialize, Default, Copy, Clone, PartialEq, Eq, Hash, Debug)]
+#[derive(
+    Serialize, Deserialize, Default, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug,
+)]
 pub struct AttackStat(pub u32);
-stat_string!(AttackStat, "Attack");
-
-#[derive(Serialize, Deserialize, Default, Copy, Clone, PartialEq, Eq, Hash, Debug)]
+#[derive(
+    Serialize, Deserialize, Default, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug,
+)]
 pub struct DefenseStat(pub u32);
-stat_string!(DefenseStat, "Defense");
-
-#[derive(Serialize, Deserialize, Default, Copy, Clone, PartialEq, Eq, Hash, Debug)]
+#[derive(
+    Serialize, Deserialize, Default, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug,
+)]
 pub struct SpecialAttackStat(pub u32);
-stat_string!(SpecialAttackStat, "Sp. Atk");
-
-#[derive(Serialize, Deserialize, Default, Copy, Clone, PartialEq, Eq, Hash, Debug)]
+#[derive(
+    Serialize, Deserialize, Default, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug,
+)]
 pub struct SpecialDefenseStat(pub u32);
-stat_string!(SpecialDefenseStat, "Sp. Def");
-
-#[derive(Serialize, Deserialize, Default, Copy, Clone, PartialEq, Eq, Hash, Debug)]
+#[derive(
+    Serialize, Deserialize, Default, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug,
+)]
 pub struct SpeedStat(pub u32);
-stat_string!(SpeedStat, "Speed");
 
 #[derive(Serialize, Deserialize, Default, Copy, Clone, PartialEq, Eq, Hash, Debug)]
 pub struct BaseStats {
@@ -139,6 +143,17 @@ pub struct BaseStats {
     pub special_attack: SpecialAttackStat,
     pub special_defense: SpecialDefenseStat,
     pub speed: SpeedStat,
+}
+
+impl BaseStats {
+    pub fn total(&self) -> u32 {
+        self.hp.0
+            + self.attack.0
+            + self.defense.0
+            + self.special_attack.0
+            + self.special_defense.0
+            + self.speed.0
+    }
 }
 
 #[derive(Serialize, Deserialize, Default, Clone, Debug)]

@@ -1,31 +1,37 @@
 #![feature(async_closure)]
 
+use rayon::prelude::*;
 use scraper::Node;
 use std::collections::{HashMap, HashSet};
 use std::io::Write;
 
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     let root = "https://pokemondb.net".to_owned();
     let main_url = root.clone() + "/pokedex/game/sword-shield";
-    let resp = reqwest::get(main_url.as_str()).await?.text().await?;
+    let resp = reqwest::blocking::get(main_url.as_str())
+        .unwrap()
+        .text()
+        .unwrap();
     let document = scraper::Html::parse_document(resp.as_str());
     let pk_name_selector = scraper::Selector::parse("a.ent-name").unwrap();
 
-    let vitals_select = scraper::Selector::parse("table.vitals-table").unwrap();
-    let data_select = scraper::Selector::parse("table.data-table").unwrap();
-    let row_select = scraper::Selector::parse("tr").unwrap();
-    let strong_select = scraper::Selector::parse("strong").unwrap();
-    let type_select = scraper::Selector::parse("a.type-icon").unwrap();
-    let small_select = scraper::Selector::parse("small").unwrap();
-    let th_select = scraper::Selector::parse("th").unwrap();
-    let tr_cell_num_select = scraper::Selector::parse("td.cell-num").unwrap();
-
-    for e in document.select(&pk_name_selector).take(5) {
+    for e in document.select(&pk_name_selector) {
         let name = e.inner_html();
-
         let url = root.to_owned() + e.value().attr("href").unwrap();
-        let resp = reqwest::get(url.as_str()).await?.text().await?;
+
+        let vitals_select = scraper::Selector::parse("table.vitals-table").unwrap();
+        let data_select = scraper::Selector::parse("table.data-table").unwrap();
+        let row_select = scraper::Selector::parse("tr").unwrap();
+        let strong_select = scraper::Selector::parse("strong").unwrap();
+        let type_select = scraper::Selector::parse("a.type-icon").unwrap();
+        let small_select = scraper::Selector::parse("small").unwrap();
+        let th_select = scraper::Selector::parse("th").unwrap();
+        let tr_cell_num_select = scraper::Selector::parse("td.cell-num").unwrap();
+
+        let resp = reqwest::blocking::get(url.as_str())
+            .unwrap()
+            .text()
+            .unwrap();
         let pk_document = scraper::Html::parse_document(resp.as_str());
 
         let mut pk = pokemon::Pokemon::default();
@@ -63,10 +69,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         }
                         _ => 0,
                     };
-                    let gen: pokemon::Generation = e
-                        .inner_html()
-                        .parse()
-                        .unwrap_or(pokemon::Generation::Unknown);
+                    let gen: pokemon::Generation = e.inner_html().parse().unwrap();
                     (gen, num as u32)
                 }));
             }
@@ -145,7 +148,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let mut file = std::fs::File::create(path).unwrap();
         file.write_all(serde_json::to_string_pretty(&pk).unwrap().as_bytes())
             .expect("failed to write file");
-        println!("{:#?}", pk);
     }
     Ok(())
 }
