@@ -43,6 +43,8 @@ struct MoveFlags {
     #[serde(default)]
     contact: i32,
     #[serde(default)]
+    recharge: i32,
+    #[serde(default)]
     charge: i32,
     #[serde(default)]
     protect: i32,
@@ -95,24 +97,36 @@ fn main() {
             "Bug", "Dark", "Dragon", "Electric", "Fairy", "Fighting", "Fire", "Flying", "Ghost",
             "Grass", "Ground", "Ice", "Normal", "Poison", "Psychic", "Rock", "Steel", "Water",
         ];
-        let coverage_score = |moves: &[&Move]| -> u32 {
+        let coverage = |moves: &[&Move]| -> HashMap<String, u32> {
             let mut coverage: HashMap<String, u32> = HashMap::with_capacity(types.len());
             types.iter().for_each(|t| {
                 if moves
                     .iter()
                     .any(|m| typechart[t.clone()].damage_taken[&m.move_type] == 1)
                 {
-                    coverage.insert(t.to_string(), 1u32);
+                    coverage.insert(t.to_string(), 2);
+                } else if moves
+                    .iter()
+                    .any(|m| typechart[t.clone()].damage_taken[&m.move_type] == 0)
+                {
+                    coverage.insert(t.to_string(), 1);
                 }
             });
-            coverage.iter().fold(0, |acc, (_k, &v)| acc + v)
+            coverage
         };
+        let coverage_score =
+            |moves: &[&Move]| -> u32 { coverage(moves).iter().fold(0, |acc, (_k, &v)| acc + v) };
 
         let zacian_learnset = &learnsets["zacian"]["learnset"];
         let zacian_moves = zacian_learnset
             .keys()
             .map(|move_name| &moves[move_name])
-            .filter(|m| m.category == "Physical" && m.base_power >= 80 && m.flags.charge == 0)
+            .filter(|m| {
+                m.category == "Physical"
+                    && m.base_power >= 80
+                    && m.flags.charge == 0
+                    && m.flags.recharge == 0
+            })
             .filter(|m| m.move_type != "Steel" || m.name == "Iron Head")
             .collect::<Vec<_>>();
         // strongest base power per type
@@ -134,24 +148,24 @@ fn main() {
             .values()
             .map(|m| *m)
             .collect_vec();
-        //        println!("{:#?}", zacian_moves);
         let combinations = zacian_moves
             .into_iter()
             .combinations(4)
             .filter(|moves| moves.iter().any(|m| m.name == "Iron Head"));
-        let coverages = combinations.map(|moves| (coverage_score(moves.as_slice()), moves));
-        let most = coverages.max_by(|(cov_a, _), (cov_b, _)| cov_a.cmp(cov_b));
-        println!("{:#?}", most);
-
-        println!(
-            "{:#?}",
-            coverage_score(
-                ["Close Combat", "Crunch", "Psychic Fangs", "Iron Head",]
-                    .iter()
-                    .map(|n| moves.values().find(|m| m.name.as_str() == *n).unwrap())
-                    .collect_vec()
-                    .as_slice()
-            )
-        );
+        let mut coverages = combinations
+            .map(|moves| (coverage_score(moves.as_slice()), moves))
+            .collect_vec();
+        coverages.sort_by(|(cov_a, _), (cov_b, _)| cov_b.partial_cmp(cov_a).unwrap());
+        let sets_with_coverage = coverages
+            .iter()
+            .map(|(cov, moves)| {
+                (
+                    cov,
+                    moves.iter().map(|m| m.name.clone()).collect_vec(),
+                    coverage(moves),
+                )
+            })
+            .collect_vec();
+        println!("{}", serde_json::to_string_pretty(&sets_with_coverage).unwrap());
     }
 }
