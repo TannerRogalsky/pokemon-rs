@@ -1,4 +1,6 @@
+use itertools::Itertools;
 use serde::{Deserialize, Serialize};
+use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -37,6 +39,23 @@ struct Pokemon {
 
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all(deserialize = "camelCase"))]
+struct MoveFlags {
+    #[serde(default)]
+    contact: i32,
+    #[serde(default)]
+    charge: i32,
+    #[serde(default)]
+    protect: i32,
+    #[serde(default)]
+    mirror: i32,
+    #[serde(default)]
+    gravity: i32,
+    #[serde(default)]
+    distance: i32,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+#[serde(rename_all(deserialize = "camelCase"))]
 struct Move {
     num: i32,
     base_power: i32,
@@ -44,6 +63,7 @@ struct Move {
     #[serde(rename(deserialize = "type"))]
     move_type: String,
     name: String,
+    flags: MoveFlags,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -53,8 +73,8 @@ struct TypeData {
 }
 
 fn main() {
-    let raw_pokedex = std::fs::read_to_string("raw/pokedex.json").unwrap();
-    let pokedex: HashMap<String, Pokemon> = serde_json::from_str(raw_pokedex.as_str()).unwrap();
+    //    let raw_pokedex = std::fs::read_to_string("raw/pokedex.json").unwrap();
+    //    let pokedex: HashMap<String, Pokemon> = serde_json::from_str(raw_pokedex.as_str()).unwrap();
 
     let raw_moves = std::fs::read_to_string("raw/moves.json").unwrap();
     let moves: HashMap<String, Move> = serde_json::from_str(raw_moves.as_str()).unwrap();
@@ -88,16 +108,50 @@ fn main() {
             coverage.iter().fold(0, |acc, (_k, &v)| acc + v)
         };
 
-        use itertools::Itertools;
         let zacian_learnset = &learnsets["zacian"]["learnset"];
         let zacian_moves = zacian_learnset
             .keys()
             .map(|move_name| &moves[move_name])
-            .filter(|m| m.category == "Physical" && m.base_power >= 80)
+            .filter(|m| m.category == "Physical" && m.base_power >= 80 && m.flags.charge == 0)
+            .filter(|m| m.move_type != "Steel" || m.name == "Iron Head")
             .collect::<Vec<_>>();
-        let combinations = zacian_moves.into_iter().combinations(4);
+        // strongest base power per type
+        let zacian_moves = zacian_moves
+            .into_iter()
+            .fold(HashMap::new(), |mut acc: HashMap<String, &Move>, m| {
+                match acc.entry(m.move_type.clone()) {
+                    Entry::Occupied(mut o) => {
+                        if o.get().base_power < m.base_power {
+                            o.insert(m);
+                        }
+                    }
+                    Entry::Vacant(v) => {
+                        v.insert(m);
+                    }
+                }
+                acc
+            })
+            .values()
+            .map(|m| *m)
+            .collect_vec();
+        //        println!("{:#?}", zacian_moves);
+        let combinations = zacian_moves
+            .into_iter()
+            .combinations(4)
+            .filter(|moves| moves.iter().any(|m| m.name == "Iron Head"));
         let coverages = combinations.map(|moves| (coverage_score(moves.as_slice()), moves));
         let most = coverages.max_by(|(cov_a, _), (cov_b, _)| cov_a.cmp(cov_b));
         println!("{:#?}", most);
+
+        println!(
+            "{:#?}",
+            coverage_score(
+                ["Close Combat", "Crunch", "Psychic Fangs", "Iron Head",]
+                    .iter()
+                    .map(|n| moves.values().find(|m| m.name.as_str() == *n).unwrap())
+                    .collect_vec()
+                    .as_slice()
+            )
+        );
     }
 }
