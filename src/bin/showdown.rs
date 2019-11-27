@@ -1,4 +1,4 @@
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -49,7 +49,7 @@ struct Move {
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all(deserialize = "camelCase"))]
 struct TypeData {
-    damage_taken: HashMap<String, u8>
+    damage_taken: HashMap<String, u8>,
 }
 
 fn main() {
@@ -60,17 +60,44 @@ fn main() {
     let moves: HashMap<String, Move> = serde_json::from_str(raw_moves.as_str()).unwrap();
 
     let raw_learnsets = std::fs::read_to_string("raw/learnsets.json").unwrap();
-    let learnsets: HashMap<String, HashMap<String, HashMap<String, Vec<String>>>> = serde_json::from_str(raw_learnsets.as_str()).unwrap();
+    let learnsets: HashMap<String, HashMap<String, HashMap<String, Vec<String>>>> =
+        serde_json::from_str(raw_learnsets.as_str()).unwrap();
     for learnset in learnsets.values() {
         assert_eq!(learnset.len(), 1);
     }
 
     let raw_typechart = std::fs::read_to_string("raw/typechart.json").unwrap();
-    let typechart: HashMap<String, TypeData> = serde_json::from_str(raw_typechart.as_str()).unwrap();
-    println!("{:#?}", typechart["Bug"]);
+    let typechart: HashMap<String, TypeData> =
+        serde_json::from_str(raw_typechart.as_str()).unwrap();
 
-    let zacian = &pokedex["zacian"];
-    let zacian_learnset = &learnsets["zacian"]["learnset"];
-    let zacian_moves = zacian_learnset.keys().map(|move_name| &moves[move_name]).collect::<Vec<_>>();
-//    println!("{:#?}", zacian_moves);
+    {
+        let types = vec![
+            "Bug", "Dark", "Dragon", "Electric", "Fairy", "Fighting", "Fire", "Flying", "Ghost",
+            "Grass", "Ground", "Ice", "Normal", "Poison", "Psychic", "Rock", "Steel", "Water",
+        ];
+        let coverage_score = |moves: &[&Move]| -> u32 {
+            let mut coverage: HashMap<String, u32> = HashMap::with_capacity(types.len());
+            types.iter().for_each(|t| {
+                if moves
+                    .iter()
+                    .any(|m| typechart[t.clone()].damage_taken[&m.move_type] == 1)
+                {
+                    coverage.insert(t.to_string(), 1u32);
+                }
+            });
+            coverage.iter().fold(0, |acc, (_k, &v)| acc + v)
+        };
+
+        use itertools::Itertools;
+        let zacian_learnset = &learnsets["zacian"]["learnset"];
+        let zacian_moves = zacian_learnset
+            .keys()
+            .map(|move_name| &moves[move_name])
+            .filter(|m| m.category == "Physical" && m.base_power >= 80)
+            .collect::<Vec<_>>();
+        let combinations = zacian_moves.into_iter().combinations(4);
+        let coverages = combinations.map(|moves| (coverage_score(moves.as_slice()), moves));
+        let most = coverages.max_by(|(cov_a, _), (cov_b, _)| cov_a.cmp(cov_b));
+        println!("{:#?}", most);
+    }
 }
